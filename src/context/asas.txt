@@ -1,0 +1,80 @@
+import React, { useState, useEffect } from "react";
+import mockUser from "./mockData.js/mockUser";
+import mockRepos from "./mockData.js/mockRepos";
+import mockFollowers from "./mockData.js/mockFollowers";
+import axios from "axios";
+
+const rootUrl = "https://api.github.com";
+const GithubContext = React.createContext();
+const GithubProvider = ({ children }) => {
+  const [githubUser, setGithubUser] = useState(mockUser);
+  const [repos, setRepos] = useState(mockRepos);
+  const [followers, setFollowers] = useState(mockFollowers);
+  const [request, setRequest] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState({ show: false, msg: "" });
+  const toogleError = (show = false, msg = "") => {
+    setError({ show: show, msg: msg });
+  };
+
+
+  const CheckRequest = async () => {
+    try {
+      toogleError();
+      const res = await axios(`${rootUrl}/rate_limit`);
+      const data = res.data.rate;
+
+      if (data.remaining === 0) {
+        toogleError(true, "sorry you have exceeded the request limit ☹");
+      }
+      setRequest(data.remaining);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const fetchUser = async (user) => {
+    toogleError();
+    setLoading(true);
+    console.log(user)
+    if (user != "") {
+      const url = `${rootUrl}/users`;
+      const res = await axios(`${url}${user}`).catch((err) => {
+        console.log(err);
+      });
+      
+      if (res) {
+        setGithubUser(res.data);
+        // const {login, followers_url}=res.data
+        // const reposRes = await axios(`${rootUrl}users/${login}/repos?per_page=100`)
+        // setRepos(reposRes.data)
+
+        // const followRes = await axios(`${followers_url}?per_page=100`)
+        // setFollowers(followRes.data)
+      } 
+      if(!res) {
+        toogleError(true, "No user with that name");
+      }
+    }
+    if (user === "") {
+      toogleError(true, "Please write something before searching 😀");
+    }
+    CheckRequest()
+    setLoading(false);
+   
+  };
+  useEffect(() => {
+    CheckRequest();
+  }, []);
+  return (
+    <GithubContext.Provider
+      value={{ githubUser, repos, followers, request, error, fetchUser,loading }}
+    >
+      {children}
+    </GithubContext.Provider>
+  );
+};
+const GetGithubContext = () => {
+  return React.useContext(GithubContext);
+};
+export { GetGithubContext, GithubContext, GithubProvider };
